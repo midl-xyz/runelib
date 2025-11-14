@@ -317,16 +317,16 @@ export class Runestone {
             pushNum.writeUint8(msgBuff.length)
         } else if (msgBuff.length < 0x100) {
             pushNum = Buffer.alloc(2)
-            pushNum.writeUint8(0x4c)
-            pushNum.writeUint8(msgBuff.length)
+            pushNum.writeUint8(0x4c, 0)
+            pushNum.writeUint8(msgBuff.length,1)
         } else if (msgBuff.length < 0x10000) {
             pushNum = Buffer.alloc(3)
-            pushNum.writeUint8(0x4d)
-            pushNum.writeUint16LE(msgBuff.length)
+            pushNum.writeUint8(0x4d, 0)
+            pushNum.writeUint16LE(msgBuff.length, 1)
         } else if (msgBuff.length < 0x100000000) {
             pushNum = Buffer.alloc(5)
-            pushNum.writeUint8(0x4e)
-            pushNum.writeUint32LE(msgBuff.length)
+            pushNum.writeUint8(0x4e, 0)
+            pushNum.writeUint32LE(msgBuff.length, 1)
         } else {
             throw new Error("runestone too big!")
         }
