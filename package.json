@@ -1,20 +1,38 @@
 {
-  "name": "runelib",
+  "name": "@midl/runelib",
   "version": "1.0.7",
   "description": "runestones encode and decode",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./*": {
+      "import": "./dist/esm/*.js",
+      "require": "./dist/cjs/*.js",
+      "types": "./dist/types/*.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "prebuild": "npm run clean",
-    "build": "tsc",
-    "clean": "rimraf rimraf dist",
+    "build": "pnpm run clean && tspc --project tsconfig.esm.json && tspc --project tsconfig.cjs.json",
+    "dev": "concurrently \"tspc --watch --preserveWatchOutput --project tsconfig.esm.json\" \"tspc --watch --preserveWatchOutput --project tsconfig.cjs.json\"",
+    "clean": "rimraf dist",
     "pretest": "npm run build",
     "test": "npm run test:mocha",
-    "test:mocha": "cross-env mocha",
+    "test:mocha": "cross-env TS_NODE_PROJECT=tsconfig.test.json mocha",
     "lint": "eslint . --ext .js,.ts --fix && prettier --write --ignore-unknown \"**/*\"",
     "lint-check": "eslint . --ext .js,.ts && prettier --check --ignore-unknown \"**/*\"",
     "prepublish": "npm run build",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "lint-staged": {
     "**/*": [
@@ -30,7 +48,7 @@
   "author": "scrypt",
   "license": "ISC",
   "dependencies": {
-    "bitcoinjs-lib": "^6.1.5"
+    "bitcoinjs-lib": "^7.0.1"
   },
   "devDependencies": {
     "@bitcoinerlab/secp256k1": "^1.1.1",
@@ -43,16 +61,19 @@
     "axios": "^1.6.8",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
-    "cross-env": "^7.0.3",
+    "cross-env": "10.1.0",
     "ecpair": "^2.1.0",
     "eslint": "^8.48.0",
     "eslint-config-prettier": "^8.6.0",
-    "husky": "^8.0.3",
+    "husky": "9.1.7",
     "lint-staged": "^13.1.0",
     "mocha": "^10.1.0",
     "prettier": "^2.8.2",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.1",
+    "ts-patch": "^3.3.0",
+    "tsc-alias": "^1.8.10",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.5"
   }
 }

@@ -1,4 +1,4 @@
-import { Edict, Message, Rune, RuneId, Tag } from '../src/runestones'
+import { Edict, Message, Rune, RuneId, Runestone, Tag } from '../src/runestones'
 
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
@@ -133,6 +133,22 @@ describe('Test Message', () => {
         const expected = Buffer.from('00d30101a8c301020005a8c301020002a8c301024601640100026401', 'hex')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
+    })
+
+    it('should correctly encode emoji symbol as a single code point', async () => {
+        const stone = Runestone.create(
+            {
+                name: 'EMOJI',
+                amount: 1,
+                cap: 1,
+                symbol: '🧿'
+            },
+            'etch'
+        )
+        const msg = stone.toMessage()
+        const symbol = msg.getSymbol()
+        expect(symbol.isSome()).to.equal(true)
+        expect(symbol.value()).to.equal('🧿')
     })
 
     // TODO: Negative cases

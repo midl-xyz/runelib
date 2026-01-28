@@ -61,7 +61,7 @@ export class Edict {
             return none();
         }
 
-        if (Number(output) > tx.outs.length) {
+        if (Number(output) >= tx.outs.length) {
             return none();
         }
 
@@ -137,6 +137,7 @@ export enum Flaw {
     UnrecognizedEvenTag,
     UnrecognizedFlag,
     Varint,
+    Pointer,
 }
 
 export class Range {
@@ -226,7 +227,8 @@ export class Runestone {
         public edicts: Array<Edict> = [],
         public etching: Option<Etching>,
         public mint: Option<RuneId>,
-        public pointer: Option<number>
+        public pointer: Option<number>,
+        public cenotaph: boolean = false
     ) {
     }
 
@@ -240,18 +242,18 @@ export class Runestone {
                 json.amount,
                 json.cap,
                 new Range(
-                    json.startHeight ? some(json.startHeight) : none(),
-                    json.endHeight ? some(json.endHeight) : none()
+                    typeof json.startHeight === 'number' ? some(json.startHeight) : none(),
+                    typeof json.endHeight === 'number' ? some(json.endHeight) : none()
                 ),
                 new Range(
-                    json.startOffset ? some(json.startOffset) : none(),
-                    json.endOffset ? some(json.endOffset) : none()
+                    typeof json.startOffset === 'number' ? some(json.startOffset) : none(),
+                    typeof json.endOffset === 'number' ? some(json.endOffset) : none()
                 )
             );
 
-            const divisibility = json.divisibility ? some(json.divisibility) : none();
+            const divisibility = typeof json.divisibility === 'number' ? some(json.divisibility) : none();
 
-            const premine = json.premine ? some(json.premine) : none();
+            const premine = typeof json.premine === 'number' ? some(json.premine) : none();
 
             const spacers = json.name.indexOf('•') > -1 ? some(getSpacersVal(json.name)) : none();
 
@@ -285,23 +287,35 @@ export class Runestone {
     static decipher(rawTx: string): Option<Runestone> {
         const tx = Transaction.fromHex(rawTx);
 
-        const payload = Runestone.payload(tx);
+        const {
+            found,
+            payload,
+            flaws: payloadFlaws,
+        } = Runestone.extractPayload(tx);
 
-        if (payload.isSome()) {
-            const integers = Runestone.integers(payload.value() as number[]);
-
-            const message = Message.from_integers(tx, integers.value() as bigint[]);
-
-            const etching = message.getEtching();
-
-            const mint = message.getMint();
-            const pointer = message.getPointer();
-
-            return some(new Runestone(message.edicts, etching, mint, pointer));
-
+        if (!found) {
+            return none();
         }
 
-        return none();
+        let cenotaph = payloadFlaws !== 0;
+        let message = new Message(new Map(), [], payloadFlaws);
+
+        if (!cenotaph && payload) {
+            const integers = Runestone.integersWithFlaws(payload);
+            message = Message.from_integers(tx, integers.values);
+            message.flaws |= integers.flaws;
+            if (message.flaws !== 0) {
+                cenotaph = true;
+            }
+        } else if (payloadFlaws !== 0) {
+            cenotaph = true;
+        }
+
+        const etching = message.getEtching();
+        const mint = message.getMint();
+        const pointer = message.getPointer();
+
+        return some(new Runestone(message.edicts, etching, mint, pointer, cenotaph));
     }
 
 
@@ -336,53 +350,74 @@ export class Runestone {
     }
 
 
-    static payload(tx: Transaction): Option<number[]> {
-
+    static extractPayload(tx: Transaction): { found: boolean; payload: number[] | null; flaws: number } {
         for (const output of tx.outs) {
-            //script.fromASM
-            const ls = script.decompile(output.script) as Array<number | Uint8Array>;
+            const ls = script.decompile(output.script) as Array<number | Uint8Array> | null;
+
+            if (!ls || ls.length === 0) {
+                continue;
+            }
 
             if (ls[0] !== script.OPS.OP_RETURN) {
                 continue;
             }
 
-
             if (ls[1] !== Runestone.MAGIC_NUMBER) {
                 continue;
             }
 
+            const payload: number[] = [];
             for (let i = 2; i < ls.length; i++) {
                 const element = ls[i];
-
-                if (element instanceof Uint8Array) {
-                    return some(Array.from(element))
+                if (element === 0) {
+                    continue;
                 }
-                return none();
+                if (element instanceof Uint8Array) {
+                    payload.push(...Array.from(element));
+                } else {
+                    return { found: true, payload: null, flaws: Flaw.Opcode };
+                }
             }
 
-
-            return none();
-
+            return { found: true, payload, flaws: 0 };
         }
 
-        return none();
+        return { found: false, payload: null, flaws: 0 };
+    }
+
+    static payload(tx: Transaction): Option<number[]> {
+        const result = Runestone.extractPayload(tx);
+        if (!result.found || !result.payload) {
+            return none();
+        }
+        return some(result.payload);
     }
 
 
-    static integers(payload: number[]): Option<bigint[]> {
+    static integersWithFlaws(payload: number[]): { values: bigint[]; flaws: number } {
         let integers: bigint[] = [];
         let i = 0;
+        let flaws = 0;
 
-        while (i < payload.length) {
-            let {
-                n,
-                len
-            } = decodeLEB128(payload.slice(i));
-            integers.push(n);
-            i += len;
+        try {
+            while (i < payload.length) {
+                let { n, len } = decodeLEB128(payload.slice(i));
+                integers.push(n);
+                i += len;
+            }
+        } catch (err) {
+            flaws |= Flaw.Varint;
         }
 
-        return some(integers)
+        return { values: integers, flaws };
+    }
+
+    static integers(payload: number[]): Option<bigint[]> {
+        const decoded = Runestone.integersWithFlaws(payload);
+        if (decoded.flaws !== 0) {
+            return none();
+        }
+        return some(decoded.values);
     }
 
 
@@ -431,7 +466,14 @@ export class Runestone {
             const symbol = etching.symbol.value()
 
             if (symbol !== null) {
-                fields.set(Tag.Symbol, [BigInt(symbol.charCodeAt(0))])
+                if (Array.from(symbol).length !== 1) {
+                    throw new Error("symbol must be a single Unicode code point");
+                }
+                const codePoint = symbol.codePointAt(0);
+                if (codePoint === undefined) {
+                    throw new Error("invalid symbol");
+                }
+                fields.set(Tag.Symbol, [BigInt(codePoint)])
             }
 
             const premine = etching.premine.value()
@@ -449,7 +491,7 @@ export class Runestone {
 
                 const heightStart = terms.height.start.value();
 
-                if (heightStart) {
+                if (heightStart !== null) {
                     fields.set(Tag.HeightStart, [BigInt(heightStart)])
 
                 }
@@ -457,20 +499,20 @@ export class Runestone {
 
                 const heightEnd = terms.height.end.value();
 
-                if (heightEnd) {
+                if (heightEnd !== null) {
                     fields.set(Tag.HeightEnd, [BigInt(heightEnd)])
                 }
 
                 const offsetStart = terms.offset.start.value();
 
-                if (offsetStart) {
+                if (offsetStart !== null) {
                     fields.set(Tag.OffsetStart, [BigInt(offsetStart)])
 
                 }
 
                 const offsetEnd = terms.offset.end.value();
 
-                if (offsetEnd) {
+                if (offsetEnd !== null) {
                     fields.set(Tag.OffsetEnd, [BigInt(offsetEnd)])
                 }
             }
@@ -515,6 +557,26 @@ export class Message {
 
         let isBody = false
 
+        const recognizedEvenTags = new Set<number>([
+            Tag.Flags,
+            Tag.Rune,
+            Tag.Premine,
+            Tag.Cap,
+            Tag.Amount,
+            Tag.HeightStart,
+            Tag.HeightEnd,
+            Tag.OffsetStart,
+            Tag.OffsetEnd,
+            Tag.Mint,
+            Tag.Pointer,
+            Tag.Body,
+        ]);
+        const recognizedOddTags = new Set<number>([
+            Tag.Divisibility,
+            Tag.Spacers,
+            Tag.Symbol,
+        ]);
+
         for (let i = 0; i < integers.length;) {
             let tag = integers[i];
             if (Number(tag) === Tag.Body) {
@@ -525,18 +587,57 @@ export class Message {
 
             if (!isBody) {
                 // Fields:
+                if (i + 1 >= integers.length) {
+                    flaws |= Flaw.TruncatedField;
+                    break;
+                }
+
                 let val = integers[i + 1];
+                const tagNum = Number(tag);
+                const isOdd = (tagNum & 1) === 1;
+
+                if (isOdd) {
+                    if (recognizedOddTags.has(tagNum)) {
+                        const vals = fields.get(tagNum) || [];
+                        vals.push(val);
+                        fields.set(tagNum, vals);
+                    }
+                    // Unrecognized odd tags are ignored.
+                    i += 2;
+                    continue;
+                }
+
+                if (!recognizedEvenTags.has(tagNum)) {
+                    flaws |= Flaw.UnrecognizedEvenTag;
+                    i += 2;
+                    continue;
+                }
+
                 const vals = fields.get(Number(tag)) || [];
                 vals.push(val);
 
                 fields.set(Number(tag), vals);
 
+                if (tagNum === Tag.Flags) {
+                    const flags = val;
+                    if ((flags & ~0b111n) !== 0n) {
+                        flaws |= Flaw.UnrecognizedFlag;
+                    }
+                }
+
+                if (tagNum === Tag.Pointer) {
+                    if (val < 0n || val >= BigInt(tx.outs.length)) {
+                        flaws |= Flaw.Pointer;
+                    }
+                }
+
                 i += 2;
             } else {
                 // Edicts:
                 let id = new RuneId(0, 0);
+                const edictChunks = chunks(integers.slice(i), 4);
 
-                for (const chunk of chunks(integers.slice(i), 4)) {
+                for (const chunk of edictChunks) {
                     if (chunk.length != 4) {
                         flaws |= Flaw.TrailingIntegers;
                         break;
@@ -549,18 +650,39 @@ export class Message {
                         break;
                     }
 
-                    const edict = Edict.from_integers(tx, next.value()!, chunk[2], chunk[3]);
+                    const nextId = next.value() as RuneId;
+                    if (nextId.block === 0 && nextId.idx !== 0) {
+                        flaws |= Flaw.EdictRuneId;
+                        break;
+                    }
+
+                    const edict = Edict.from_integers(tx, nextId, chunk[2], chunk[3]);
 
                     if (!edict.isSome()) {
                         flaws |= Flaw.EdictOutput;
                         break;
                     }
 
-                    id = next.value() as RuneId;
+                    id = nextId;
                     edicts.push(edict.value() as Edict);
                 }
 
-                i += 4;
+                i = integers.length;
+            }
+        }
+
+        const flagsVals = fields.get(Tag.Flags) || [];
+        const combinedFlags = flagsVals.reduce((acc, val) => acc | val, 0n);
+        if ((combinedFlags & (1n << BigInt(Flag.Terms))) !== 0n) {
+            if (!fields.has(Tag.Amount) || !fields.has(Tag.Cap)) {
+                flaws |= Flaw.TruncatedField;
+            }
+        }
+
+        if (fields.has(Tag.Mint)) {
+            const mintVals = fields.get(Tag.Mint) as bigint[];
+            if (mintVals.length < 2) {
+                flaws |= Flaw.TruncatedField;
             }
         }
 
@@ -642,7 +764,12 @@ export class Message {
     }
 
     getFlags(): number {
-        return Number(this.fields.get(Tag.Flags));
+        if (!this.fields.has(Tag.Flags)) {
+            return 0;
+        }
+        const flagsVals = this.fields.get(Tag.Flags) as bigint[];
+        const combined = flagsVals.reduce((acc, val) => acc | val, 0n);
+        return Number(combined);
     }
 
     hasFlags(flag: Flag): boolean {
@@ -659,7 +786,11 @@ export class Message {
             return none();
         }
 
-        const [block, tx] = this.fields.get(Tag.Mint) as [bigint, bigint];
+        const mintVals = this.fields.get(Tag.Mint) as bigint[];
+        if (mintVals.length < 2) {
+            return none();
+        }
+        const [block, tx] = mintVals as [bigint, bigint];
 
         return some(new RuneId(Number(block), Number(tx)));
     }
@@ -690,7 +821,7 @@ export class Message {
         }
         const [divisibility] = this.fields.get(Tag.Divisibility) as [bigint];
 
-        if (divisibility > Etching.MAX_DIVISIBILITY) {
+        if (divisibility > BigInt(Etching.MAX_DIVISIBILITY)) {
             throw new Error("invalid divisibility");
         }
 
@@ -720,7 +851,7 @@ export class Message {
             return none();
         }
         const [spacers] = this.fields.get(Tag.Spacers) as [bigint];
-        if (spacers > Etching.MAX_SPACERS) {
+        if (spacers > BigInt(Etching.MAX_SPACERS)) {
             throw new Error("invalid spacers");
         }
         return some(Number(spacers));
@@ -787,8 +918,11 @@ export class Message {
             return none();
         }
         const [symbol] = this.fields.get(Tag.Symbol) as [bigint];
-
-        return some(String.fromCharCode(Number(symbol)));
+        const codePoint = Number(symbol);
+        if (codePoint < 0 || codePoint > 0x10ffff) {
+            return none();
+        }
+        return some(String.fromCodePoint(codePoint));
     }
 
 
@@ -798,15 +932,13 @@ export class Message {
         }
 
         const cap = this.getCap();
-
         if (!cap.isSome()) {
-            throw new Error("no cap field")
+            return none();
         }
 
         const amount = this.getAmount();
-
         if (!amount.isSome()) {
-            throw new Error("no amount field")
+            return none();
         }
 
         const heightStart = this.getHeightStart();
@@ -890,7 +1022,7 @@ export class EtchInscription {
         const ls = script.decompile(tapscript) as Array<number | Uint8Array>;
 
         const fields: Map<number, Buffer> = new Map()
-        const dataChunks: Array<Buffer> = []
+        const dataChunks: Array<Uint8Array> = []
 
         let isData = false
         for (let i = 5; i < ls.length - 1;) {
@@ -902,7 +1034,7 @@ export class EtchInscription {
                 continue
             } else if (isData) {
                 // Data
-                dataChunks.push(chunk as Buffer)
+                dataChunks.push(chunk as Uint8Array)
                 i++
             } else {
                 // Fields
@@ -977,4 +1109,3 @@ export class EtchInscription {
     }
 
 }
-
