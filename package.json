@@ -23,7 +23,7 @@
   ],
   "scripts": {
     "prebuild": "npm run clean",
-    "build": "pnpm run clean && tspc --project tsconfig.esm.json && tspc --project tsconfig.cjs.json",
+    "build": "npm run clean && tspc --project tsconfig.esm.json && tspc --project tsconfig.cjs.json",
     "dev": "concurrently \"tspc --watch --preserveWatchOutput --project tsconfig.esm.json\" \"tspc --watch --preserveWatchOutput --project tsconfig.cjs.json\"",
     "clean": "rimraf dist",
     "pretest": "npm run build",
