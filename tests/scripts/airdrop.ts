@@ -1,23 +1,24 @@
-import {
-    Transaction,
-    script,
-    Psbt,
-    address as Address,
-    initEccLib,
-    networks,
-    Signer as BTCSigner,
-    crypto,
-    payments,
-} from "bitcoinjs-lib";
-import { ECPairFactory, ECPairAPI } from "ecpair";
 import ecc from "@bitcoinerlab/secp256k1";
 import axios, { AxiosResponse } from "axios";
-import { Rune, RuneId, Runestone, EtchInscription, none, some, Terms, Range, Etching, Edict } from "../../dist";
+import {
+    Signer as BTCSigner,
+    Psbt,
+    crypto,
+    initEccLib,
+    networks,
+    payments
+} from "bitcoinjs-lib";
+import { ECPairFactory } from "ecpair";
+import { Edict, RuneId, Runestone, none } from "../../src";
+import { concatBytes } from "../../src/utils";
 
 
 initEccLib(ecc as any);
 declare const window: any;
-const ECPair: ECPairAPI = ECPairFactory(ecc);
+const ECPair = ECPairFactory(ecc) as unknown as {
+    fromPrivateKey: (key: Uint8Array, options?: any) => any;
+    fromWIF: (wif: string, network?: any) => any;
+};
 const network = networks.testnet;
 
 // mint: http://bridge.scrypt.io:8888/rune/BESTSCRYPTMINT
@@ -56,7 +57,7 @@ async function mintWithTaproot() {
         psbt.addInput({
             hash: utxo.txid,
             index: utxo.vout,
-            witnessUtxo: { value: utxo.value, script: p2pktr.output! },
+            witnessUtxo: { value: BigInt(utxo.value), script: p2pktr.output! },
             tapInternalKey: toXOnly(keyPair.publicKey)
         });
     
@@ -75,23 +76,23 @@ async function mintWithTaproot() {
 
     psbt.addOutput({
         script: mintstone.encipher(),
-        value: 0
+        value: 0n
     });
 
     for (let i = 0; i < 11; i++) {
         psbt.addOutput({
             address: "tb1ppresfm876y9ddn3fgw2zr0wj0pl3zanslje9nfpznq3kc90q46rqmnne43", // rune receive address
-            value: 546
+            value: 546n
         });
     }
 
 
 
-    const fee = 100000;
+    const fee = 100000n;
 
     const change = utxos.reduce((acc, utxo) => {
-        return acc + utxo.value
-    }, 0) - fee - 546*11;
+        return acc + BigInt(utxo.value);
+    }, 0n) - fee - 546n*11n;
 
     psbt.addOutput({
         address: "tb1ppresfm876y9ddn3fgw2zr0wj0pl3zanslje9nfpznq3kc90q46rqmnne43", // change address
@@ -188,14 +189,14 @@ export async function broadcast(txHex: string) {
 }
 
 
-function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
+function tapTweakHash(pubKey: Uint8Array, h: Uint8Array | undefined): Uint8Array {
     return crypto.taggedHash(
         "TapTweak",
-        Buffer.concat(h ? [pubKey, h] : [pubKey])
+        concatBytes(...(h ? [pubKey, h] : [pubKey]))
     );
 }
 
-function toXOnly(pubkey: Buffer): Buffer {
+function toXOnly(pubkey: Uint8Array): Uint8Array {
     return pubkey.subarray(1, 33);
 }
 
@@ -218,7 +219,7 @@ function tweakSigner(signer: BTCSigner, opts: any = {}): BTCSigner {
         throw new Error("Invalid tweaked private key!");
     }
 
-    return ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), {
+    return ECPair.fromPrivateKey(tweakedPrivateKey, {
         network: opts.network,
     });
 }

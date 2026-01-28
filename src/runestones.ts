@@ -2,7 +2,7 @@ import { Transaction, script } from "bitcoinjs-lib";
 import { base26Decode, base26Encode } from "./base26";
 import { Option, none, some } from "./fts";
 import { decodeLEB128, encodeLEB128 } from "./leb128";
-import { chunks, toPushData } from "./utils";
+import { chunkBytes, chunks, concatBytes, hexToBytes, toPushData, utf8ToBytes, writeUInt16LE, writeUInt32LE, writeUInt8 } from "./utils";
 import { getSpacersVal, removeSpacers } from "./spacers";
 
 
@@ -319,34 +319,34 @@ export class Runestone {
     }
 
 
-    encipher(): Buffer {
+    encipher(): Uint8Array {
         const msg = this.toMessage()
         const msgBuff = msg.toBuffer()
 
-        const prefix = Buffer.from('6a5d', 'hex')  // OP_RETURN OP_13
+        const prefix = hexToBytes('6a5d')  // OP_RETURN OP_13
 
-        let pushNum;
+        let pushNum: Uint8Array;
         if (msgBuff.length < 0x4c) {
-            pushNum = Buffer.alloc(1)
-            pushNum.writeUint8(msgBuff.length)
+            pushNum = new Uint8Array(1)
+            writeUInt8(pushNum, msgBuff.length)
         } else if (msgBuff.length < 0x100) {
-            pushNum = Buffer.alloc(2)
-            pushNum.writeUint8(0x4c, 0)
-            pushNum.writeUint8(msgBuff.length,1)
+            pushNum = new Uint8Array(2)
+            writeUInt8(pushNum, 0x4c, 0)
+            writeUInt8(pushNum, msgBuff.length, 1)
         } else if (msgBuff.length < 0x10000) {
-            pushNum = Buffer.alloc(3)
-            pushNum.writeUint8(0x4d, 0)
-            pushNum.writeUint16LE(msgBuff.length, 1)
+            pushNum = new Uint8Array(3)
+            writeUInt8(pushNum, 0x4d, 0)
+            writeUInt16LE(pushNum, msgBuff.length, 1)
         } else if (msgBuff.length < 0x100000000) {
-            pushNum = Buffer.alloc(5)
-            pushNum.writeUint8(0x4e, 0)
-            pushNum.writeUint32LE(msgBuff.length, 1)
+            pushNum = new Uint8Array(5)
+            writeUInt8(pushNum, 0x4e, 0)
+            writeUInt32LE(pushNum, msgBuff.length, 1)
         } else {
             throw new Error("runestone too big!")
         }
 
 
-        return Buffer.concat([prefix, pushNum, msgBuff])
+        return concatBytes(prefix, pushNum, msgBuff)
     }
 
 
@@ -700,23 +700,23 @@ export class Message {
         this.edicts.push(edict)
     }
 
-    toBuffer(): Buffer {
-        const buffArr: Buffer[] = []
+    toBuffer(): Uint8Array {
+        const buffArr: Uint8Array[] = []
 
         // Serialize fields.
         for (const [tag, vals] of this.fields) {
             for (const val of vals) {
-                const tagBuff = Buffer.alloc(1)
-                tagBuff.writeUInt8(tag)
+                const tagBuff = new Uint8Array(1)
+                writeUInt8(tagBuff, tag)
                 buffArr.push(tagBuff)
 
-                buffArr.push(Buffer.from(encodeLEB128(val)))
+                buffArr.push(Uint8Array.from(encodeLEB128(val)))
             }
         }
 
         // Serialize edicts.
         if (this.edicts.length > 0) {
-            buffArr.push(Buffer.from('00', 'hex'))
+            buffArr.push(Uint8Array.of(0x00))
             // 1) Sort by block height
             // 2) Sort by tx idx
             this.edicts.sort((a, b) => {
@@ -733,8 +733,8 @@ export class Message {
                 if (i == 0) {
                     lastBlockHeight = BigInt(edict.id.block)
                     lastTxIdx = BigInt(edict.id.idx)
-                    buffArr.push(Buffer.from(encodeLEB128(lastBlockHeight)))
-                    buffArr.push(Buffer.from(encodeLEB128(lastTxIdx)))
+                    buffArr.push(Uint8Array.from(encodeLEB128(lastBlockHeight)))
+                    buffArr.push(Uint8Array.from(encodeLEB128(lastTxIdx)))
                 } else {
                     const currBlockHeight = BigInt(edict.id.block)
                     const currTxIdx = BigInt(edict.id.idx)
@@ -743,24 +743,24 @@ export class Message {
                         const deltaTxIdx = currTxIdx - lastTxIdx
                         lastTxIdx = currTxIdx
 
-                        buffArr.push(Buffer.from(encodeLEB128(0n)))
-                        buffArr.push(Buffer.from(encodeLEB128(deltaTxIdx)))
+                        buffArr.push(Uint8Array.from(encodeLEB128(0n)))
+                        buffArr.push(Uint8Array.from(encodeLEB128(deltaTxIdx)))
                     } else {
                         const deltaBlockHeight = currBlockHeight - lastBlockHeight
                         lastBlockHeight = currBlockHeight
                         lastTxIdx = currTxIdx
 
-                        buffArr.push(Buffer.from(encodeLEB128(deltaBlockHeight)))
-                        buffArr.push(Buffer.from(encodeLEB128(currTxIdx)))
+                        buffArr.push(Uint8Array.from(encodeLEB128(deltaBlockHeight)))
+                        buffArr.push(Uint8Array.from(encodeLEB128(currTxIdx)))
                     }
                 }
 
-                buffArr.push(Buffer.from(encodeLEB128(BigInt(edict.amount))))
-                buffArr.push(Buffer.from(encodeLEB128(BigInt(edict.output))))
+                buffArr.push(Uint8Array.from(encodeLEB128(BigInt(edict.amount))))
+                buffArr.push(Uint8Array.from(encodeLEB128(BigInt(edict.output))))
             }
         }
 
-        return Buffer.concat(buffArr)
+        return concatBytes(...buffArr)
     }
 
     getFlags(): number {
@@ -984,14 +984,14 @@ export class EtchInscription {
     }
 
     constructor(
-        public fields: Map<number, Buffer> = new Map(),
-        public data: Buffer = Buffer.alloc(0)
+        public fields: Map<number, Uint8Array> = new Map(),
+        public data: Uint8Array = new Uint8Array(0)
     ) {
 
     }
 
-    setContent(contentType: string, data: Buffer) {
-        this.fields.set(1, Buffer.from(contentType, 'utf8'))
+    setContent(contentType: string, data: Uint8Array) {
+        this.fields.set(1, utf8ToBytes(contentType))
         this.data = data
     }
 
@@ -1003,10 +1003,12 @@ export class EtchInscription {
             nstr = '0' + nstr;
         }
 
-        this.setField(EtchInscription.Tag.RUNE, Buffer.from(nstr, 'hex').reverse());
+        const runeBytes = hexToBytes(nstr);
+        runeBytes.reverse();
+        this.setField(EtchInscription.Tag.RUNE, runeBytes);
     }
 
-    setField(field: number, val: Buffer) {
+    setField(field: number, val: Uint8Array) {
         this.fields.set(field, val)
     }
 
@@ -1021,7 +1023,7 @@ export class EtchInscription {
 
         const ls = script.decompile(tapscript) as Array<number | Uint8Array>;
 
-        const fields: Map<number, Buffer> = new Map()
+        const fields: Map<number, Uint8Array> = new Map()
         const dataChunks: Array<Uint8Array> = []
 
         let isData = false
@@ -1041,11 +1043,11 @@ export class EtchInscription {
                 const tag = (chunk as number) - 80
                 const val = ls[i + 1]
                 if (typeof val == 'number') {
-                    const buff = Buffer.alloc(1)
-                    buff.writeUint8(val)
+                    const buff = new Uint8Array(1)
+                    writeUInt8(buff, val)
                     fields.set(tag, buff)
                 } else {
-                    fields.set(tag, val as Buffer)
+                    fields.set(tag, val as Uint8Array)
                 }
                 i += 2
             }
@@ -1054,25 +1056,25 @@ export class EtchInscription {
 
         return new EtchInscription(
             fields,
-            Buffer.concat(dataChunks)
+            concatBytes(...dataChunks)
         )
     }
 
-    encipher(): Buffer {
-        const res = []
+    encipher(): Uint8Array {
+        const res: Uint8Array[] = []
 
         if (this.data && this.data.length > 0) {
 
             res.push(
-                Buffer.from('0063036f7264', 'hex') // 0 OP_IF "ord"
+                hexToBytes('0063036f7264') // 0 OP_IF "ord"
             )
 
             Array.from(this.fields.entries())
                 .sort((a, b) => a[0] - b[0]) // Sorting by tag in ascending order
                 .forEach(([tag, val]) => {
-                    const tagBuff = Buffer.alloc(1);
-                    tagBuff.writeUInt8(tag);
-                    res.push(Buffer.from('01', 'hex'))
+                    const tagBuff = new Uint8Array(1);
+                    writeUInt8(tagBuff, tag);
+                    res.push(Uint8Array.of(0x01))
                     res.push(tagBuff);
 
                     if (val.length != 1 || val[0] != 0x00) {
@@ -1083,16 +1085,16 @@ export class EtchInscription {
                 });
 
 
-            res.push(Buffer.from('00', 'hex'))
+            res.push(Uint8Array.of(0x00))
 
-            const dataChunks = chunks(Array.from(this.data), 520)
+            const dataChunks = chunkBytes(this.data, 520)
             for (const chunk of dataChunks) {
-                res.push(toPushData(Buffer.from(chunk)))
+                res.push(toPushData(chunk))
             }
 
         } else {
             res.push(
-                Buffer.from('0063', 'hex') // 0 OP_IF
+                hexToBytes('0063') // 0 OP_IF
             )
             const rune = this.fields.get(EtchInscription.Tag.RUNE);
             if(!rune) {
@@ -1101,11 +1103,9 @@ export class EtchInscription {
             res.push(toPushData(rune));
         }
 
+        res.push(hexToBytes('68')) // OP_ENDIF
 
-
-        res.push(Buffer.from('68', 'hex')) // OP_ENDIF
-
-        return Buffer.concat(res)
+        return concatBytes(...res)
     }
 
 }

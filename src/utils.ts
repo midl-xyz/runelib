@@ -24,16 +24,12 @@ export const toHex = (msg: number[]): string => {
     return res
 }
 
-
-
 export function chunks<T>(bin: T[], chunkSize: number): T[][] {
 
     const chunks: T[][] = [];
     let offset = 0;
 
     while (offset < bin.length) {
-        // Use Buffer.slice to create a chunk. This method does not copy the memory;
-        // it creates a new Buffer that references the original memory.
         const chunk = bin.slice(offset, offset + chunkSize);
         chunks.push(chunk);
         offset += chunkSize;
@@ -42,38 +38,103 @@ export function chunks<T>(bin: T[], chunkSize: number): T[][] {
     return chunks;
 }
 
-export function toPushData(data: Buffer): Buffer {
-    const res: Array<Buffer> = []
+export function chunkBytes(bin: Uint8Array, chunkSize: number): Uint8Array[] {
+    const chunks: Uint8Array[] = [];
+    let offset = 0;
+
+    while (offset < bin.length) {
+        const chunk = bin.subarray(offset, offset + chunkSize);
+        chunks.push(chunk);
+        offset += chunkSize;
+    }
+
+    return chunks;
+}
+
+export function writeUInt8(buf: Uint8Array, value: number, offset = 0): void {
+    buf[offset] = value & 0xff;
+}
+
+export function writeUInt16LE(buf: Uint8Array, value: number, offset = 0): void {
+    buf[offset] = value & 0xff;
+    buf[offset + 1] = (value >> 8) & 0xff;
+}
+
+export function writeUInt32LE(buf: Uint8Array, value: number, offset = 0): void {
+    buf[offset] = value & 0xff;
+    buf[offset + 1] = (value >> 8) & 0xff;
+    buf[offset + 2] = (value >> 16) & 0xff;
+    buf[offset + 3] = (value >> 24) & 0xff;
+}
+
+export function toPushData(data: Uint8Array): Uint8Array {
+    const res: Array<Uint8Array> = []
 
     const dLen = data.length
     if (dLen < 0x4c) {
-        const dLenBuff = Buffer.alloc(1)
-        dLenBuff.writeUInt8(dLen)
+        const dLenBuff = new Uint8Array(1)
+        writeUInt8(dLenBuff, dLen)
         res.push(dLenBuff)
     } else if (dLen <= 0xff) {
         // OP_PUSHDATA1
-        res.push(Buffer.from('4c', 'hex'))
+        res.push(Uint8Array.of(0x4c))
 
-        const dLenBuff = Buffer.alloc(1)
-        dLenBuff.writeUInt8(dLen)
+        const dLenBuff = new Uint8Array(1)
+        writeUInt8(dLenBuff, dLen)
         res.push(dLenBuff)
     } else if (dLen <= 0xffff) {
         // OP_PUSHDATA2
-        res.push(Buffer.from('4d', 'hex'))
+        res.push(Uint8Array.of(0x4d))
 
-        const dLenBuff = Buffer.alloc(2)
-        dLenBuff.writeUint16LE(dLen)
+        const dLenBuff = new Uint8Array(2)
+        writeUInt16LE(dLenBuff, dLen)
         res.push(dLenBuff)
     } else {
         // OP_PUSHDATA4
-        res.push(Buffer.from('4e', 'hex'))
+        res.push(Uint8Array.of(0x4e))
 
-        const dLenBuff = Buffer.alloc(4)
-        dLenBuff.writeUint32LE(dLen)
+        const dLenBuff = new Uint8Array(4)
+        writeUInt32LE(dLenBuff, dLen)
         res.push(dLenBuff)
     }
 
     res.push(data)
 
-    return Buffer.concat(res)
+    return concatBytes(...res)
+}
+
+export function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+    if (arrays.length === 0) {
+        return new Uint8Array(0);
+    }
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arr of arrays) {
+        result.set(arr, offset);
+        offset += arr.length;
+    }
+    return result;
+}
+
+export function hexToBytes(hex: string): Uint8Array {
+    const clean = hex.length % 2 === 0 ? hex : '0' + hex;
+    const bytes = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < clean.length; i += 2) {
+        bytes[i / 2] = parseInt(clean[i] + clean[i + 1], 16);
+    }
+    return bytes;
+}
+
+export function bytesToHex(bytes: Uint8Array): string {
+    let result = '';
+    for (const byte of bytes) {
+        result += byte.toString(16).padStart(2, '0');
+    }
+    return result;
+}
+
+const encoder = new TextEncoder();
+export function utf8ToBytes(str: string): Uint8Array {
+    return encoder.encode(str);
 }

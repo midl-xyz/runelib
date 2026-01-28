@@ -1,6 +1,7 @@
 import assert from "assert";
-import { Runestone } from "../../dist";
 import { Transaction } from "bitcoinjs-lib";
+import { Runestone } from "../../src";
+import { bytesToHex } from "../../src/utils";
 
 
 const EtchingRawTx = '020000000001018ff853e0bbfb208151cc27b65384c16612457ce19fe776447023f7315424cd0e0000000000fdffffff030000000000000000246a5d21020304cb99b3a0c697b69988fade9ab8060300057406000ac0de810a08904e16012202000000000000225120af942104872a54b2777a9a04cc779f1e74c6216659183492a4692f88ebcdf19f2705000000000000160014b19423a162f7f8c1cf3a15fccced55512250d12b03409cd3a362e02dabe10ce7a78b6f154c56b6f0f48e65ef9a70879a2ba09b5c71586ec733981f97cd1ab493379e47cc848b1cd92d3b82bbb0c1f5a0e5badea1fe423220960979298572fb6aa526cfe9234dabff13275d24290a9511ebb4e9c741888fc9ac00630ccbcc0c64bcd83208bd5783336821c03c6eb81bfd2b839730af5669695bacad78438a75563bb61c44eecc58a2dc0ef000000000';
@@ -16,8 +17,8 @@ const stone = Runestone.decipher(EtchingRawTx).value() as Runestone;
 const s = stone.encipher();
 
 
-assert.strictEqual("6a5d21020304cb99b3a0c697b69988fade9ab8060300057406000ac0de810a08904e1601", s.toString('hex'))
-console.log('stone', s.toString('hex'))
+assert.strictEqual("6a5d21020304cb99b3a0c697b69988fade9ab8060300057406000ac0de810a08904e1601", bytesToHex(s))
+console.log('stone', bytesToHex(s))
 
 
 
@@ -32,7 +33,4 @@ console.log('stone', s.toString('hex'))
 // const sm = Runestone.encipher(mintStone);
 
 
-// console.log('mint stone ', sm.toString('hex'))
-
-
-
+// console.log('mint stone ', bytesToHex(sm))

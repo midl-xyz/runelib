@@ -1,6 +1,6 @@
 {
   "name": "@midl/runelib",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "runestones encode and decode",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -48,6 +48,7 @@
   "author": "scrypt",
   "license": "ISC",
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
     "bitcoinjs-lib": "^7.0.1"
   },
   "devDependencies": {
@@ -62,7 +63,7 @@
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
     "cross-env": "10.1.0",
-    "ecpair": "^2.1.0",
+    "ecpair": "^3.0.0",
     "eslint": "^8.48.0",
     "eslint-config-prettier": "^8.6.0",
     "husky": "9.1.7",

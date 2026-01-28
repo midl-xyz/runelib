@@ -1,5 +1,6 @@
 import { Runestone } from '../src/runestones'
 
+import { hexToBytes } from '../src/utils'
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 use(chaiAsPromised)
@@ -13,7 +14,7 @@ describe('Test Runestone', () => {
     it('should correctly decipher and encipher etch reveal tx', async () => {
         const stone = Runestone.decipher(etchRevealRawTx).value()
 
-        const expected = Buffer.from('6a5d17020304cbfed481d8d9bdbf4c010205530aa08d0608904e', 'hex')
+        const expected = hexToBytes('6a5d17020304cbfed481d8d9bdbf4c010205530aa08d0608904e')
         const actual = stone!.encipher()
         expect(actual).to.eql(expected)
     })
@@ -21,7 +22,7 @@ describe('Test Runestone', () => {
     it('should correctly decipher and encipher etch reveal tx #2', async () => {
         const stone = Runestone.decipher(etchRevealRawTx2).value()
 
-        const expected = Buffer.from('6a5d21020304cb99b3a0c697b69988fade9ab8060300057406000ac0de810a08904e1601', 'hex')
+        const expected = hexToBytes('6a5d21020304cb99b3a0c697b69988fade9ab8060300057406000ac0de810a08904e1601')
         const actual = stone!.encipher()
         expect(actual).to.eql(expected)
     })
@@ -29,7 +30,7 @@ describe('Test Runestone', () => {
     it('should correctly decipher and encipher mint tx', async () => {
         const stone = Runestone.decipher(mintRawTx).value()
 
-        const expected = Buffer.from('6a5d0514d3011401', 'hex')
+        const expected = hexToBytes('6a5d0514d3011401')
         const actual = stone!.encipher()
         expect(actual).to.eql(expected)
     })
@@ -37,7 +38,7 @@ describe('Test Runestone', () => {
     it('should correctly decipher and encipher transfer tx', async () => {
         const stone = Runestone.decipher(transferRawTx).value()
 
-        const expected = Buffer.from('6a5d0800d30101a8c30102', 'hex')
+        const expected = hexToBytes('6a5d0800d30101a8c30102')
         const actual = stone!.encipher()
         expect(actual).to.eql(expected)
     })
