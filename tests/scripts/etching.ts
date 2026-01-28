@@ -9,16 +9,20 @@ import {
     crypto,
     payments,
 } from "bitcoinjs-lib";
-import { Taptree } from "bitcoinjs-lib/src/types";
-import { ECPairFactory, ECPairAPI } from "ecpair";
+import { bytesToHex, concatBytes, utf8ToBytes } from "../../src/utils";
+import { ECPairFactory } from "ecpair";
 import ecc from "@bitcoinerlab/secp256k1";
 import axios, { AxiosResponse } from "axios";
-import { Rune, RuneId, Runestone, EtchInscription, none, some, Terms, Range, Etching } from "../../dist";
+import { Rune, RuneId, Runestone, EtchInscription, none, some, Terms, Range, Etching } from "../../src";
+import { Taptree } from "bitcoinjs-lib/src/cjs/types";
 
 
 initEccLib(ecc as any);
 declare const window: any;
-const ECPair: ECPairAPI = ECPairFactory(ecc);
+const ECPair = ECPairFactory(ecc) as unknown as {
+    fromPrivateKey: (key: Uint8Array, options?: any) => any;
+    fromWIF: (wif: string, network?: any) => any;
+};
 const network = networks.regtest;
 
 // mint: http://bridge.scrypt.io:8888/rune/BESTSCRYPTMINT
@@ -36,13 +40,11 @@ async function etching() {
 
     const ins = new EtchInscription()
 
-    ins.setContent("text/plain", Buffer.from('scrypt is best', 'utf-8'))
+    ins.setContent("text/plain", utf8ToBytes('scrypt is best'))
     ins.setRune(name)
 
-    const etching_script_asm = `${toXOnly(keyPair.publicKey).toString(
-        "hex"
-    )} OP_CHECKSIG`;
-    const etching_script = Buffer.concat([script.fromASM(etching_script_asm), ins.encipher()]);
+    const etching_script_asm = `${bytesToHex(toXOnly(keyPair.publicKey))} OP_CHECKSIG`;
+    const etching_script = concatBytes(script.fromASM(etching_script_asm), ins.encipher());
 
     const scriptTree: Taptree = {
         output: etching_script,
@@ -82,7 +84,7 @@ async function etching() {
     psbt.addInput({
         hash: utxos[0].txid,
         index: utxos[0].vout,
-        witnessUtxo: { value: utxos[0].value, script: script_p2tr.output! },
+        witnessUtxo: { value: BigInt(utxos[0].value), script: script_p2tr.output! },
         tapLeafScript: [
             {
                 leafVersion: etching_redeem.redeemVersion,
@@ -102,18 +104,18 @@ async function etching() {
 
     psbt.addOutput({
         script: stone.encipher(),
-        value: 0
+        value: 0n
     })
 
 
-    const fee = 5000;
+    const fee = 5000n;
 
-    const change = utxos[0].value - 546 - fee;
+    const change = BigInt(utxos[0].value) - 546n - fee;
 
 
     psbt.addOutput({
         address: "bcrt1pl2yjprfdzsej49yssj38lpap9rgj9fy0pzz6venjw3gn6620l3wqf056tm", // change address
-        value: 546
+        value: 546n
     });
 
     psbt.addOutput({
@@ -207,14 +209,14 @@ export async function broadcast(txHex: string) {
 }
 
 
-function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
+function tapTweakHash(pubKey: Uint8Array, h: Uint8Array | undefined): Uint8Array {
     return crypto.taggedHash(
         "TapTweak",
-        Buffer.concat(h ? [pubKey, h] : [pubKey])
+        concatBytes(...(h ? [pubKey, h] : [pubKey]))
     );
 }
 
-function toXOnly(pubkey: Buffer): Buffer {
+function toXOnly(pubkey: Uint8Array): Uint8Array {
     return pubkey.subarray(1, 33);
 }
 
@@ -237,7 +239,7 @@ function tweakSigner(signer: BTCSigner, opts: any = {}): BTCSigner {
         throw new Error("Invalid tweaked private key!");
     }
 
-    return ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), {
+    return ECPair.fromPrivateKey(tweakedPrivateKey, {
         network: opts.network,
     });
 }

@@ -1,5 +1,6 @@
 import { Edict, Message, Rune, RuneId, Runestone, Tag } from '../src/runestones'
 
+import { hexToBytes } from '../src/utils'
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 use(chaiAsPromised)
@@ -15,7 +16,7 @@ describe('Test Message', () => {
         msg.addFieldVal(Tag.Amount, 100000n)  // 1000.00 (since divisibility is 2)
         msg.addFieldVal(Tag.Cap, 10000n)
 
-        const expected = Buffer.from('020304cbfed481d8d9bdbf4c010205530aa08d0608904e', 'hex')
+        const expected = hexToBytes('020304cbfed481d8d9bdbf4c010205530aa08d0608904e')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
     })
@@ -26,7 +27,7 @@ describe('Test Message', () => {
         msg.addFieldVal(Tag.Mint, 211n)  // Block #211
         msg.addFieldVal(Tag.Mint, 1n)    // Tx #1
 
-        const expected = Buffer.from('14d3011401', 'hex')
+        const expected = hexToBytes('14d3011401')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
     })
@@ -44,7 +45,7 @@ describe('Test Message', () => {
             )
         )
 
-        const expected = Buffer.from('00d30101a8c30102', 'hex')
+        const expected = hexToBytes('00d30101a8c30102')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
     })
@@ -72,7 +73,7 @@ describe('Test Message', () => {
             )
         )
 
-        const expected = Buffer.from('00d30101a8c3010246016401', 'hex')
+        const expected = hexToBytes('00d30101a8c3010246016401')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
     })
@@ -130,7 +131,7 @@ describe('Test Message', () => {
             )
         )
 
-        const expected = Buffer.from('00d30101a8c301020005a8c301020002a8c301024601640100026401', 'hex')
+        const expected = hexToBytes('00d30101a8c301020005a8c301020002a8c301024601640100026401')
         const actual = msg.toBuffer()
         expect(actual).to.eql(expected)
     })

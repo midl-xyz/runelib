@@ -98,13 +98,11 @@ async function etching() {
 
     const ins = new EtchInscription()
 
-    ins.setContent("text/plain", Buffer.from('scrypt is best', 'utf-8'))
+    ins.setContent("text/plain", utf8ToBytes('scrypt is best'))
     ins.setRune(name)
 
-    const etching_script_asm = `${toXOnly(keyPair.publicKey).toString(
-        "hex"
-    )} OP_CHECKSIG`;
-    const etching_script = Buffer.concat([script.fromASM(etching_script_asm), ins.encipher()]);
+    const etching_script_asm = `${bytesToHex(toXOnly(keyPair.publicKey))} OP_CHECKSIG`;
+    const etching_script = concatBytes(script.fromASM(etching_script_asm), ins.encipher());
 
     const scriptTree: Taptree = {
         output: etching_script,

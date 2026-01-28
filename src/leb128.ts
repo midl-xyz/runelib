@@ -14,7 +14,6 @@ export function encodeLEB128(value: bigint): number[] {
         bytes.push(byte);
     }
 
-    // Convert array to Buffer
     return bytes;
 }
 
