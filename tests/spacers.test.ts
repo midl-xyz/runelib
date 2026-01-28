@@ -1,7 +1,8 @@
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { applySpacers, getSpacersVal } from '../src/spacers'
-import { Rune } from '../dist'
+import { Rune } from '../src/runestones'
+
 use(chaiAsPromised)
 
 describe('Test rune name spacers', () => {
