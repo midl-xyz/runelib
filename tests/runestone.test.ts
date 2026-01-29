@@ -1,6 +1,6 @@
-import { Runestone } from '../src/runestones'
+import { Runestone } from '../src/runestones.js'
 
-import { hexToBytes } from '../src/utils'
+import { hexToBytes } from '../src/utils.js'
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 use(chaiAsPromised)

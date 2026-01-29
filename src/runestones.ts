@@ -1,9 +1,9 @@
 import { Transaction, script } from "bitcoinjs-lib";
-import { base26Decode, base26Encode } from "./base26";
-import { Option, none, some } from "./fts";
-import { decodeLEB128, encodeLEB128 } from "./leb128";
-import { chunkBytes, chunks, concatBytes, hexToBytes, toPushData, utf8ToBytes, writeUInt16LE, writeUInt32LE, writeUInt8 } from "./utils";
-import { getSpacersVal, removeSpacers } from "./spacers";
+import { base26Decode, base26Encode } from "./base26.js";
+import { Option, none, some } from "./fts.js";
+import { decodeLEB128, encodeLEB128 } from "./leb128.js";
+import { chunkBytes, chunks, concatBytes, hexToBytes, toPushData, utf8ToBytes, writeUInt16LE, writeUInt32LE, writeUInt8 } from "./utils.js";
+import { getSpacersVal, removeSpacers } from "./spacers.js";
 
 
 /**

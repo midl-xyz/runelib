@@ -1,30 +1,30 @@
 {
   "name": "@midl/runelib",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "runestones encode and decode",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
+  "type": "module",
   "exports": {
-    "./package.json": "./package.json",
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/esm/index.js"
     },
     "./*": {
-      "import": "./dist/esm/*.js",
-      "require": "./dist/cjs/*.js",
-      "types": "./dist/types/*.d.ts"
-    }
+      "types": "./dist/types/*.d.ts",
+      "default": "./dist/esm/*.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "prebuild": "npm run clean",
-    "build": "npm run clean && tspc --project tsconfig.esm.json && tspc --project tsconfig.cjs.json",
-    "dev": "concurrently \"tspc --watch --preserveWatchOutput --project tsconfig.esm.json\" \"tspc --watch --preserveWatchOutput --project tsconfig.cjs.json\"",
+    "build": "npm run clean && npm run build:esm",
+    "build:esm": "tspc --project tsconfig.esm.json",
+    "dev": "tspc --watch --preserveWatchOutput --project tsconfig.esm.json",
     "clean": "rimraf dist",
     "pretest": "npm run build",
     "test": "npm run test:mocha",

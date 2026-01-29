@@ -2,7 +2,8 @@
   "extends": "./tsconfig.json",
   "include": ["src/**/*.ts", "tests/**/*.ts"],
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node"
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   }
 }

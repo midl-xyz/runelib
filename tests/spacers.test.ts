@@ -1,7 +1,7 @@
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { applySpacers, getSpacersVal } from '../src/spacers'
-import { Rune } from '../src/runestones'
+import { applySpacers, getSpacersVal } from '../src/spacers.js'
+import { Rune } from '../src/runestones.js'
 
 use(chaiAsPromised)
 

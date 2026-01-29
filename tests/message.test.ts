@@ -1,6 +1,6 @@
-import { Edict, Message, Rune, RuneId, Runestone, Tag } from '../src/runestones'
+import { Edict, Message, Rune, RuneId, Runestone, Tag } from '../src/runestones.js'
 
-import { hexToBytes } from '../src/utils'
+import { hexToBytes } from '../src/utils.js'
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 use(chaiAsPromised)
