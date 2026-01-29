@@ -1,7 +1,7 @@
 
 import { expect, use } from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { base26Encode , base26Decode } from '../src/base26'
+import { base26Encode , base26Decode } from '../src/base26.js'
 use(chaiAsPromised)
 
 describe('Test Base64', () => {
